@@ -3,7 +3,6 @@ package io.koff.risk_ident
 import java.io.File
 
 import scala.annotation.tailrec
-import scala.concurrent.Future
 import scala.io.Source
 
 /**
@@ -123,6 +122,7 @@ object OrderScheduler {
     val sortedByOrderDuration = sortedByTime.flatMap {
       case (_, groupedOrders) => groupedOrders.sortBy(_.cookDuration)
     }
+
     val firstOrder :: tail = sortedByOrderDuration
     cookNext(firstOrder.time, List(firstOrder), tail, 0)
   }
@@ -170,8 +170,28 @@ object OrderScheduler {
    * @param currentOrders list of orders
    * @return index of the order with minimal cookDuration
    */
-  def findMinDurationIndex(currentOrders: List[PizzaOrder]): Int = {
-    currentOrders.zipWithIndex.minBy(_._1.cookDuration)._2
+  def findMinDurationIndex(currentOrders: List[PizzaOrder]): Int = findMinIndex(Int.MaxValue, 0, 0, currentOrders.iterator)
+
+  /**
+   * Custom search of a min elem.
+   * @param minVal current min value
+   * @param minIndex the index of current min value
+   * @param currIndex current index in the seq
+   * @param iter iterator with data
+   * @return the index of current min value
+   */
+  @tailrec
+  def findMinIndex(minVal: Int, minIndex: Int, currIndex: Int, iter: Iterator[PizzaOrder]): Int = {
+    if(iter.hasNext){
+      val next = iter.next()
+      if(next.cookDuration < minVal){
+        findMinIndex(next.cookDuration, currIndex, currIndex + 1, iter)
+      } else {
+        findMinIndex(minVal, minIndex, currIndex + 1, iter)
+      }
+    } else {
+      minIndex
+    }
   }
 
   /**
