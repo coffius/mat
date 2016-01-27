@@ -3,12 +3,35 @@ package io.koff.risk_ident
 import java.io.File
 
 import scala.annotation.tailrec
+import scala.collection.mutable
 import scala.io.Source
 
 /**
  * Schedule orders to minimize average waiting time
  */
 object OrderScheduler {
+
+  type OrderedList[T] = mutable.PriorityQueue[T]
+
+  /**
+   * Creates a new ordered list from sequence
+   */
+  def create[T : Ordering](seq: Seq[T]): OrderedList[T] = {
+    val list = new mutable.PriorityQueue[T]()
+    list.enqueue(seq:_*)
+    list
+  }
+
+  /**
+   * Defines default ordering for PizzaOrder
+   */
+  class PizzaOrdering extends Ordering[PizzaOrder] {
+    override def compare(x: PizzaOrder, y: PizzaOrder): Int = {
+      x.cookDuration - y.cookDuration
+    }
+  }
+  //pizza orders with smaller cookDuration are served at first
+  private implicit val reversePizzaOrdering = new PizzaOrdering().reverse
 
   /**
    * Helper for work with either seq
@@ -124,7 +147,7 @@ object OrderScheduler {
     }
 
     val firstOrder :: tail = sortedByOrderDuration
-    cookNext(firstOrder.time, List(firstOrder), tail, 0)
+    cookNext(firstOrder.time, create(Seq(firstOrder)), tail, 0)
   }
 
   /**
@@ -136,18 +159,17 @@ object OrderScheduler {
    * @return minimum total time of waiting
    */
   @tailrec
-  private def cookNext(currentCookTime: Int, currentOrders: List[PizzaOrder], futureOrders: List[PizzaOrder], totalTime: BigInt): BigInt = {
+  private def cookNext(currentCookTime: Int, currentOrders: OrderedList[PizzaOrder], futureOrders: List[PizzaOrder], totalTime: BigInt): BigInt = {
     if(currentOrders.isEmpty && futureOrders.isEmpty) {
       //all pizzas are cooked
       totalTime
     } else if(currentOrders.isEmpty && futureOrders.nonEmpty) {
       //don't have any orders right now. So wait the next order
       val nextOrder :: tail = futureOrders
-      cookNext(currentCookTime, List(nextOrder), tail, totalTime)
+      cookNext(currentCookTime, create(Seq(nextOrder)), tail, totalTime)
     } else {
       //cooking and calculating
-      val minIndex: Int = findMinDurationIndex(currentOrders)
-      val orderToCook = currentOrders(minIndex)
+      val orderToCook = currentOrders.dequeue()
       
       val inQueueTime = if(currentCookTime >= orderToCook.time) { 
         currentCookTime - orderToCook.time
@@ -156,12 +178,11 @@ object OrderScheduler {
       }
       
       val waitTime = inQueueTime + orderToCook.cookDuration
-      val remainOrders = deleteElemByIndex(currentOrders, minIndex)
       val nextCookTime = currentCookTime + orderToCook.cookDuration
       val (nextOrders, inFuture) = futureOrders.span(_.time <= nextCookTime)
-
+      currentOrders.enqueue(nextOrders:_*)
       //cook the next pizza
-      cookNext(nextCookTime, remainOrders ++ nextOrders, inFuture, totalTime + waitTime)
+      cookNext(nextCookTime, currentOrders, inFuture, totalTime + waitTime)
     }
   }
 
