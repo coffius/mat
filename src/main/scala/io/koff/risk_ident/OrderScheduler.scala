@@ -11,13 +11,19 @@ import scala.io.Source
  */
 object OrderScheduler {
 
+  /**
+   * Helper for work with either seq
+   */
   object EitherHelper {
+    /**
+     * Converts Seq[Either[A, B]] to Either[A, Seq[B]] with a fail-fast strategy
+     */
     def sequence[A, B](s: Seq[Either[A, B]]): Either[A, Seq[B]] = {
-      s.foldRight(Right(Nil): Either[A, List[B]]) {
-        (either, accum) => for {
+      s.foldLeft(Right(Nil): Either[A, List[B]]) {
+        (accum, either) => for {
           accValue <- accum.right
           value <- either.right
-        } yield value :: accValue
+        } yield accValue :+ value
       }
     }
   }
@@ -37,6 +43,11 @@ object OrderScheduler {
     }
   }
 
+  /**
+   * Returns iterator for file's lines if file exists
+   * @param file a file
+   * @return iterator with lines or error string
+   */
   private def readFile(file: File): Either[String, Iterator[String]] = {
     if(file.isFile && file.canRead) {
       Right(Source.fromFile(file, "utf-8").getLines())
@@ -45,6 +56,12 @@ object OrderScheduler {
     }
   }
 
+  /**
+   * Reads lines from `lineIter` and check their number
+   * @param lineIter iterator with lines
+   * @param number needed number of lines
+   * @return sequence of readed lines or error string if the number of lines in iterator is less then `number`
+   */
   private def readLines(lineIter: Iterator[String], number: Int): Either[String, Seq[String]] = {
     val seq = lineIter.take(number).toSeq
     if(seq.size < number){
@@ -110,6 +127,14 @@ object OrderScheduler {
     cookNext(firstOrder.time, List(firstOrder), tail, 0)
   }
 
+  /**
+   * Calculate minimum total time of waiting
+   * @param currentCookTime current time of a cook
+   * @param currentOrders available orders for cooking
+   * @param futureOrders orders that will be available
+   * @param totalTime current value of total waiting time
+   * @return minimum total time of waiting
+   */
   @tailrec
   private def cookNext(currentCookTime: Int, currentOrders: List[PizzaOrder], futureOrders: List[PizzaOrder], totalTime: BigInt): BigInt = {
     if(currentOrders.isEmpty && futureOrders.isEmpty) {
@@ -140,10 +165,21 @@ object OrderScheduler {
     }
   }
 
+  /**
+   * Finds the index of the order with minimal cookDuration
+   * @param currentOrders list of orders
+   * @return index of the order with minimal cookDuration
+   */
   def findMinDurationIndex(currentOrders: List[PizzaOrder]): Int = {
     currentOrders.zipWithIndex.minBy(_._1.cookDuration)._2
   }
 
+  /**
+   * Removes an elem from the list by index and returns a new list without the removed element
+   * @param list list
+   * @param index index to remove
+   * @return a new list without the removed element
+   */
   def deleteElemByIndex[T](list: List[T], index: Int): List[T] = {
     list.take(index) ++ list.drop(index + 1)
   }

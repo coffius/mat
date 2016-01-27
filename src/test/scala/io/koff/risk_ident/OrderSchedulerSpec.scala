@@ -1,5 +1,6 @@
 package io.koff.risk_ident
 
+import io.koff.risk_ident.OrderScheduler.EitherHelper
 import org.scalatest.{Matchers, BeforeAndAfterAll, FreeSpec}
 
 /**
@@ -76,5 +77,16 @@ class OrderSchedulerSpec
       val pizzaOrderResult = OrderScheduler.parseOrderLine(wrongLine)
       pizzaOrderResult shouldBe a[Left[_, _]]
     }
+  }
+
+  "should fail fast" in {
+    val ok = Right(10)
+    val err1 = Left("err1")
+    val err2 = Left("err2")
+
+    val eithers = Seq(ok, err1, err2)
+
+    val result = EitherHelper.sequence(eithers)
+    result shouldBe err1
   }
 }
